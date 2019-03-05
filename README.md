@@ -211,9 +211,121 @@ the keys present in those property files can be used in the pom configuration
 </plugin>
 ```  
 - In the above the code generated will be stored in custom directory- "gensrc". In order to add the classes present
-in this directory to the classpath, add the below plugin in "pom.xml" under <build> tag 
+in this directory to the classpath, add the below plugin in "pom.xml" under <build> tag
+```
+<plugin>
+    <groupId>org.codehaus.mojo</groupId>
+    <artifactId>build-helper-maven-plugin</artifactId>
+    <executions>
+        <execution>
+            <phase>generate-sources</phase>
+            <goals>
+                <goal>add-source</goal>
+            </goals>
+            <configuration>
+                <sources>
+                    <source>gensrc/main/java</source>
+                </sources>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
+```  
 - In the pom.xml , add the below dependencies under <dependencies> tag
+```
+<dependency>
+    <groupId>commons-dbcp</groupId>
+    <artifactId>commons-dbcp</artifactId>
+    <version>1.4</version>
+</dependency>
+<dependency>
+    <groupId>org.jooq</groupId>
+    <artifactId>jooq</artifactId>
+    <version>${jooq.version}</version>
+</dependency>
+<dependency>
+    <groupId>org.jooq</groupId>
+    <artifactId>jooq-meta</artifactId>
+    <version>${jooq.version}</version>
+</dependency>
+```  
 - Under the "src/main/java" , create package - "com.prokarma.config" , in this package create class - "JooqSpringBootConfiguration" and fill with the below content  
+```
+package com.jooq.config;
+ 
+import com.jooq.exception.ExceptionTranslator;
+import com.jooq.service.IBookService;
+import com.jooq.service.impl.BookServiceImpl;
+import com.jooq.transaction.JooqSpringTransactionProvider;
+import org.apache.commons.dbcp.BasicDataSource;
+import org.jooq.*;
+import org.jooq.impl.DataSourceConnectionProvider;
+import org.jooq.impl.DefaultConfiguration;
+import org.jooq.impl.DefaultDSLContext;
+import org.jooq.impl.DefaultExecuteListenerProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.core.env.Environment;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy;
+ 
+import javax.sql.DataSource;
+ 
+@Configuration
+public class JooqSpringBootConfiguration {
+ 
+    @Bean
+    public DataSourceTransactionManager transactionManager(DataSource dataSource) {
+        System.out.println(dataSource.toString());
+        return new DataSourceTransactionManager(dataSource);
+    }
+ 
+    @Bean
+    public DSLContext dsl(org.jooq.Configuration config) {
+        return new DefaultDSLContext(config);
+    }
+ 
+    @Bean
+    public ConnectionProvider connectionProvider(DataSource dataSource) {
+        return new DataSourceConnectionProvider(new TransactionAwareDataSourceProxy(dataSource));
+    }
+ 
+    @Bean
+    public TransactionProvider transactionProvider(DataSourceTransactionManager transactionManager) {
+        return new JooqSpringTransactionProvider(transactionManager);
+    }
+ 
+    @Bean
+    public ExceptionTranslator exceptionTranslator() {
+        return new ExceptionTranslator();
+    }
+ 
+    @Bean
+    public ExecuteListenerProvider executeListenerProvider(ExceptionTranslator exceptionTranslator) {
+        return new DefaultExecuteListenerProvider(exceptionTranslator);
+ 
+    }
+ 
+    @Bean
+    public org.jooq.Configuration jooqConfig(ConnectionProvider connectionProvider,
+                                             TransactionProvider transactionProvider, ExecuteListenerProvider executeListenerProvider) {
+ 
+        return new DefaultConfiguration()
+                .derive(connectionProvider)
+                .derive(transactionProvider)
+                .derive(executeListenerProvider)
+                .derive(SQLDialect.H2);
+    }
+ 
+    @Bean
+    public IBookService bookService(DSLContext dsl) {
+        return new BookServiceImpl(dsl);
+    }
+ 
+}
+```
 - Under the "src/main/java" , create package - "com.prokarma.service", in this package create interface - "IBookService" and fill with the below content
 - Under the "src/main/java" , create package - "com.prokarma.service.impl", in this package create class - "BookServiceImpl" and fill with the below content
 - Under the "src/main/java" , create package - "com.prokarma.exception", in this package create class - "ExceptionTranslator" and fill with the below content
