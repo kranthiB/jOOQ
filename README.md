@@ -13,14 +13,14 @@ jOOQ(Java Object Oriented Querying) is a persistence framework which embraces SQ
 
 - Create a project by using the site "http://start.spring.io"  and specify the dependencies - H2, JOOQ
 - In "application.properties" (under directory - src/main/resources) file , add the following entries
-```
+```properties
 spring.datasource.driver-class-name=org.h2.Driver
 spring.datasource.url=jdbc:h2:~/test
 spring.datasource.username=sa
 spring.datasource.password=
 ```
 - Create file -  "schema.sql" (under directory - src/main/resources) , fill with below content
-```
+```sql
 DROP TABLE IF EXISTS book_to_book_store;
 DROP TABLE IF EXISTS book_store;
 DROP TABLE IF EXISTS book;
@@ -80,7 +80,7 @@ ON DELETE CASCADE
 );
 ```
 - Create file - "data.sql" (under directory - src/main/resources) , fill with below content
-```
+```sql
 INSERT INTO author VALUES (next value for s_author_id, 'George', 'Orwell', '1903-06-25', 1903, null);
 INSERT INTO author VALUES (next value for s_author_id, 'Paulo', 'Coelho', '1947-08-24', 1947, null);
  
@@ -104,7 +104,7 @@ INSERT INTO book_to_book_store VALUES
 ```
 - In pom.xml , add the below plugin (under <build> tag) . This plugin is used to load the custom property files where
 the keys present in those property files can be used in the pom configuration
-```
+```xml
 <plugin>
     <groupId>org.codehaus.mojo</groupId>
     <artifactId>properties-maven-plugin</artifactId>
@@ -125,7 +125,7 @@ the keys present in those property files can be used in the pom configuration
 </plugin>
 ```
 - In pom.xml , add the below plugin (under <build> tag) . This plugin is used to load the schema and initialize the database with the custom scripts
-```
+```xml
 <plugin>
     <groupId>org.codehaus.mojo</groupId>
     <artifactId>sql-maven-plugin</artifactId>
@@ -161,7 +161,7 @@ the keys present in those property files can be used in the pom configuration
 </plugin>
 ```
 - In pom.xml , add the below plugin (under <build> tag) . This plugin is used to generate the java code from the database schema.
-```
+```xml
 <plugin>
     <groupId>org.jooq</groupId>
     <artifactId>jooq-codegen-maven</artifactId>
@@ -212,7 +212,7 @@ the keys present in those property files can be used in the pom configuration
 ```  
 - In the above the code generated will be stored in custom directory- "gensrc". In order to add the classes present
 in this directory to the classpath, add the below plugin in "pom.xml" under <build> tag
-```
+```xml
 <plugin>
     <groupId>org.codehaus.mojo</groupId>
     <artifactId>build-helper-maven-plugin</artifactId>
@@ -232,7 +232,7 @@ in this directory to the classpath, add the below plugin in "pom.xml" under <bui
 </plugin>
 ```  
 - In the pom.xml , add the below dependencies under <dependencies> tag
-```
+```xml
 <dependency>
     <groupId>commons-dbcp</groupId>
     <artifactId>commons-dbcp</artifactId>
@@ -250,7 +250,7 @@ in this directory to the classpath, add the below plugin in "pom.xml" under <bui
 </dependency>
 ```  
 - Under the "src/main/java" , create package - "com.jooq.config" , in this package create class - "JooqSpringBootConfiguration" and fill with the below content  
-```
+```java
 package com.jooq.config;
  
 import com.jooq.exception.ExceptionTranslator;
@@ -327,7 +327,7 @@ public class JooqSpringBootConfiguration {
 }
 ```
 - Under the "src/main/java" , create package - "com.jooq.service", in this package create interface - "IBookService" and fill with the below content
-```
+```java
 package com.jooq.service;
  
 import org.springframework.transaction.annotation.Transactional;
@@ -338,7 +338,7 @@ public interface IBookService {
 }
 ```
 - Under the "src/main/java" , create package - "com.jooq.service.impl", in this package create class - "BookServiceImpl" and fill with the below content
-```
+```java
 package com.jooq.service.impl;
  
 import com.jooq.service.IBookService;
@@ -363,7 +363,7 @@ public class BookServiceImpl implements IBookService {
 }
 ```
 - Under the "src/main/java" , create package - "com.jooq.exception", in this package create class - "ExceptionTranslator" and fill with the below content
-```
+```java
 package com.jooq.exception;
  
 import org.jooq.ExecuteContext;
@@ -387,7 +387,7 @@ public class ExceptionTranslator extends DefaultExecuteListener {
 }
 ```
 - Under the "src/main/java" , create package - "com.prokarma.transaction", in this package create class - "JooqSpringTransaction" and fill with the below content
-```
+```java
 package com.prokarma.transaction;
  
 import org.jooq.Transaction;
@@ -402,7 +402,7 @@ public class JooqSpringTransaction implements Transaction {
 }
 ```
 - Under the "src/main/java" , in the package -"com.jooq.transaction", create class - "JooqSpringTransactionProvider" and fill with the below content
-```
+```java
 package com.jooq.transaction;
  
 import org.jooq.TransactionContext;
@@ -446,7 +446,7 @@ public class JooqSpringTransactionProvider implements TransactionProvider {
 }
 ```
 - Under the "src/test/java" , create package - "com.jooq", in this package create class - "DBSetup" and fill with the below content
-```
+```java
 package com.jooq;
  
 import java.sql.Connection;
@@ -509,7 +509,7 @@ public class DBSetUp {
 }
 ```
 - Under the "src/test/java" , in the package -- "com.jooq", create class - "JooqUtil" and fill with the below content    
-```
+```java
 package com.jooq;
  
 public class JooqUtil {
@@ -529,7 +529,7 @@ public class JooqUtil {
 }
 ```
 - Under the "src/test/java" , in the package -- "com.jooq", create class - "JooqTests" and fill with the below content    
-```
+```java
 package com.jooq;
  
 import static com.prokarma.jooq.tables.Author.AUTHOR;
@@ -897,7 +897,7 @@ public class JooqTests {
 }
 ```
 - Under the "src/test/java" , in the package -- "com.jooq", create class - "TransactionTest" and fill with the below content
-```
+```java
 package com.jooq;
  
 import com.prokarma.config.JooqSpringBootConfiguration;
