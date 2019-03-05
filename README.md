@@ -249,7 +249,7 @@ in this directory to the classpath, add the below plugin in "pom.xml" under <bui
     <version>${jooq.version}</version>
 </dependency>
 ```  
-- Under the "src/main/java" , create package - "com.prokarma.config" , in this package create class - "JooqSpringBootConfiguration" and fill with the below content  
+- Under the "src/main/java" , create package - "com.jooq.config" , in this package create class - "JooqSpringBootConfiguration" and fill with the below content  
 ```
 package com.jooq.config;
  
@@ -326,13 +326,693 @@ public class JooqSpringBootConfiguration {
  
 }
 ```
-- Under the "src/main/java" , create package - "com.prokarma.service", in this package create interface - "IBookService" and fill with the below content
-- Under the "src/main/java" , create package - "com.prokarma.service.impl", in this package create class - "BookServiceImpl" and fill with the below content
-- Under the "src/main/java" , create package - "com.prokarma.exception", in this package create class - "ExceptionTranslator" and fill with the below content
+- Under the "src/main/java" , create package - "com.jooq.service", in this package create interface - "IBookService" and fill with the below content
+```
+package com.jooq.service;
+ 
+import org.springframework.transaction.annotation.Transactional;
+ 
+public interface IBookService {
+    @Transactional
+    void create(int id, int authorId, String title);
+}
+```
+- Under the "src/main/java" , create package - "com.jooq.service.impl", in this package create class - "BookServiceImpl" and fill with the below content
+```
+package com.jooq.service.impl;
+ 
+import com.jooq.service.IBookService;
+import org.jooq.DSLContext;
+import org.springframework.transaction.annotation.Transactional;
+ 
+import static com.prokarma.jooq.tables.Book.BOOK;
+ 
+public class BookServiceImpl implements IBookService {
+ 
+    private DSLContext dsl;
+ 
+    public BookServiceImpl(DSLContext dsl) {
+        this.dsl = dsl;
+    }
+ 
+    @Override
+    @Transactional
+    public void create(int id, int authorId, String title) {
+        dsl.insertInto(BOOK).set(BOOK.ID, id).set(BOOK.AUTHOR_ID, authorId).set(BOOK.TITLE, title).execute();
+    }
+}
+```
+- Under the "src/main/java" , create package - "com.jooq.exception", in this package create class - "ExceptionTranslator" and fill with the below content
+```
+package com.jooq.exception;
+ 
+import org.jooq.ExecuteContext;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DefaultExecuteListener;
+import org.springframework.jdbc.support.SQLErrorCodeSQLExceptionTranslator;
+import org.springframework.jdbc.support.SQLExceptionTranslator;
+import org.springframework.jdbc.support.SQLStateSQLExceptionTranslator;
+ 
+public class ExceptionTranslator extends DefaultExecuteListener {
+    @Override
+    public void exception(ExecuteContext ctx) {
+        if (ctx.sqlException() != null) {
+            SQLDialect sqlDialect = ctx.dialect();
+            SQLExceptionTranslator sqlExceptionTranslator = (sqlDialect != null)
+                    ? new SQLErrorCodeSQLExceptionTranslator(sqlDialect.thirdParty().springDbName())
+                    : new SQLStateSQLExceptionTranslator();
+            ctx.exception(sqlExceptionTranslator.translate("jOOQ", ctx.sql(), ctx.sqlException()));
+        }
+    }
+}
+```
 - Under the "src/main/java" , create package - "com.prokarma.transaction", in this package create class - "JooqSpringTransaction" and fill with the below content
-- Under the "src/main/java" , in the package -"com.prokarma.transaction", create class - "JooqSpringTransactionProvider" and fill with the below content
-- Under the "src/test/java" , create package - "com.prokarma.jooq", in this package create class - "DBSetup" and fill with the below content
-- Under the "src/test/java" , in the package -- "com.prokarma.jooq", create class - "JooqUtil" and fill with the below content    
-- Under the "src/test/java" , in the package -- "com.prokarma.jooq", create class - "JooqTests" and fill with the below content    
-- Under the "src/test/java" , in the package -- "com.prokarma.jooq", create class - "TransactionTest" and fill with the below content
-- 
+```
+package com.prokarma.transaction;
+ 
+import org.jooq.Transaction;
+import org.springframework.transaction.TransactionStatus;
+ 
+public class JooqSpringTransaction implements Transaction {
+    final TransactionStatus transactionStatus;
+ 
+    public JooqSpringTransaction(TransactionStatus transactionStatus) {
+        this.transactionStatus = transactionStatus;
+    }
+}
+```
+- Under the "src/main/java" , in the package -"com.jooq.transaction", create class - "JooqSpringTransactionProvider" and fill with the below content
+```
+package com.jooq.transaction;
+ 
+import org.jooq.TransactionContext;
+import org.jooq.TransactionProvider;
+import org.jooq.exception.DataAccessException;
+import org.jooq.tools.JooqLogger;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
+ 
+public class JooqSpringTransactionProvider implements TransactionProvider {
+ 
+    private static final JooqLogger JOOQ_LOGGER = JooqLogger.getLogger(JooqSpringTransactionProvider.class);
+ 
+    private DataSourceTransactionManager dataSourceTransactionManager;
+ 
+    public JooqSpringTransactionProvider(DataSourceTransactionManager dataSourceTransactionManager) {
+        this.dataSourceTransactionManager = dataSourceTransactionManager;
+    }
+ 
+    @Override
+    public void begin(TransactionContext transactionContext) throws DataAccessException {
+        JOOQ_LOGGER.info("Begin Transaction");
+        TransactionStatus transactionStatus = dataSourceTransactionManager.getTransaction
+                (new DefaultTransactionDefinition(TransactionDefinition.PROPAGATION_NESTED));
+        transactionContext.transaction(new JooqSpringTransaction(transactionStatus));
+    }
+ 
+    @Override
+    public void commit(TransactionContext transactionContext) throws DataAccessException {
+        JOOQ_LOGGER.info("commit transaction");
+        dataSourceTransactionManager.commit(((JooqSpringTransaction) transactionContext.transaction()).transactionStatus);
+    }
+ 
+    @Override
+    public void rollback(TransactionContext transactionContext) throws DataAccessException {
+        JOOQ_LOGGER.info("rollback transaction");
+        dataSourceTransactionManager.rollback(((JooqSpringTransaction) transactionContext.transaction()).transactionStatus);
+    }
+}
+```
+- Under the "src/test/java" , create package - "com.jooq", in this package create class - "DBSetup" and fill with the below content
+```
+package com.jooq;
+ 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.util.Properties;
+ 
+public class DBSetUp {
+ 
+    static Connection connection;
+ 
+    static Properties properties;
+ 
+    public static Connection connection() {
+        if (connection == null) {
+            try {
+                Class.forName("org.h2.Driver");
+ 
+                connection = DriverManager.getConnection(
+                        url(),
+                        username(),
+                        password());
+                connection.setAutoCommit(false);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+ 
+        return connection;
+    }
+ 
+    public static String password() {
+        return properties().getProperty("spring.datasource.password");
+    }
+ 
+    public static String username() {
+        return properties().getProperty("spring.datasource.username");
+    }
+ 
+    public static String url() {
+        return properties().getProperty("spring.datasource.url");
+    }
+ 
+    public static String driver() {
+        return properties().getProperty("spring.datasource.driver-class-name");
+    }
+ 
+    public static Properties properties() {
+        if (properties == null) {
+            try {
+                properties = new Properties();
+                properties.load(DBSetUp.class.getResourceAsStream("/application.properties"));
+ 
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+ 
+        return properties;
+    }
+}
+```
+- Under the "src/test/java" , in the package -- "com.jooq", create class - "JooqUtil" and fill with the below content    
+```
+package com.jooq;
+ 
+public class JooqUtil {
+ 
+    public static void title(String title) {
+        String dashes = "=============================================================================================";
+ 
+        System.out.println();
+        System.out.println(title);
+        System.out.println(dashes);
+        System.out.println();
+    }
+ 
+    public static void print(Object o) {
+        System.out.println(o);
+    }
+}
+```
+- Under the "src/test/java" , in the package -- "com.jooq", create class - "JooqTests" and fill with the below content    
+```
+package com.jooq;
+ 
+import static com.prokarma.jooq.tables.Author.AUTHOR;
+import static com.prokarma.jooq.tables.Book.BOOK;
+import static com.prokarma.jooq.tables.BookStore.BOOK_STORE;
+import static com.prokarma.jooq.tables.BookToBookStore.BOOK_TO_BOOK_STORE;
+import static org.jooq.impl.DSL.*;
+ 
+import com.prokarma.jooq.tables.Author;
+import com.prokarma.jooq.tables.Book;
+import com.prokarma.jooq.tables.BookStore;
+import com.prokarma.jooq.tables.BookToBookStore;
+import com.prokarma.jooq.tables.records.AuthorRecord;
+import com.prokarma.jooq.tables.records.BookRecord;
+import org.apache.commons.dbcp.BasicDataSource;
+import org.jooq.*;
+import org.jooq.conf.*;
+import org.jooq.exception.DataChangedException;
+import org.jooq.impl.*;
+import org.junit.Assert;
+import org.junit.FixMethodOrder;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.MethodSorters;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit4.SpringRunner;
+ 
+import java.sql.*;
+import java.util.Arrays;
+ 
+ 
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
+public class JooqTests {
+ 
+    Connection connection = DBSetUp.connection();
+    DSLContext dslContext = DSL.using(connection);
+ 
+    @Test
+    public void test01PrintTheQuery() {
+        JooqUtil.title("Create a simple query without executing it");
+        JooqUtil.print(select(AUTHOR.FIRST_NAME, AUTHOR.LAST_NAME)
+                .from(AUTHOR)
+                .orderBy(AUTHOR.ID));
+    }
+ 
+    @Test
+    public void test02ExecuteTheQuery() {
+        JooqUtil.title("Selecting FIRST_NAME and LAST_NAME from the AUTHOR table");
+        JooqUtil.print(dslContext
+     .select(AUTHOR.FIRST_NAME, AUTHOR.LAST_NAME)
+                .from(AUTHOR)
+                .orderBy(AUTHOR.ID).fetch());
+    }
+ 
+    @Test
+    public void test03DMLStatements() {
+        JooqUtil.title("Inserting a new AUTHOR");
+        JooqUtil.print(dslContext
+     .insertInto(AUTHOR, AUTHOR.ID, AUTHOR.FIRST_NAME, AUTHOR.LAST_NAME)
+                .values(3, "FIRST3", "LAST3")
+                .execute());
+ 
+        JooqUtil.title("Check if our latest record was really created");
+        JooqUtil.print(dslContext
+     .select()
+                .from(AUTHOR)
+                .where(AUTHOR.ID.eq(3))
+                .fetch());
+ 
+        JooqUtil.title("Update DATE_OF_BIRTH Column");
+        JooqUtil.print(dslContext
+     .update(AUTHOR)
+                .set(AUTHOR.DATE_OF_BIRTH, Date.valueOf("2000-08-13"))
+                .where(AUTHOR.ID.eq(3))
+                .execute());
+ 
+        JooqUtil.title("Check if our latest record was really updated");
+        JooqUtil.print(dslContext
+     .select()
+                .from(AUTHOR)
+                .where(AUTHOR.ID.eq(3))
+                .fetch());
+ 
+        JooqUtil.title("Delete the new record again");
+        JooqUtil.print(dslContext
+     .delete(AUTHOR)
+                .where(AUTHOR.ID.eq(3))
+                .execute());
+ 
+        JooqUtil.title("Check if the record was really deleted");
+        JooqUtil.print(dslContext
+     .select()
+                .from(AUTHOR)
+                .fetch());
+    }
+ 
+    @Test
+    public void test04Predicates() {
+        JooqUtil.title("Combine predicates using AND");
+        JooqUtil.print(dslContext
+     .select()
+                .from(BOOK)
+                .where(BOOK.TITLE.like("%a%").and(BOOK.AUTHOR_ID.eq(1)))
+                .fetch());
+ 
+        JooqUtil.title("Use an IN-Predicate");
+        JooqUtil.print(dslContext
+     .select()
+                .from(AUTHOR)
+                .where(AUTHOR.ID.in(select(BOOK.AUTHOR_ID).from(BOOK)))
+                .fetch());
+    }
+ 
+    @Test
+    public void test05ColumnExpressions() {
+        JooqUtil.title("CONCAT() function with prefix notation");
+        JooqUtil.print(dslContext
+     .select(concat(AUTHOR.FIRST_NAME, val(" "), AUTHOR.LAST_NAME))
+                .from(AUTHOR)
+                .orderBy(AUTHOR.ID)
+                .fetch());
+ 
+        JooqUtil.title("CONCAT() function with infix notation");
+        JooqUtil.print(dslContext
+     .select(AUTHOR.FIRST_NAME.concat(" ").concat(AUTHOR.LAST_NAME))
+                .from(AUTHOR)
+                .orderBy(AUTHOR.ID)
+                .fetch());
+    }
+ 
+    @Test
+    public void test06ActiveRecords() {
+        AuthorRecord author;
+        JooqUtil.title("Loading and changing active records");
+        author = dslContext.selectFrom(AUTHOR).where(AUTHOR.ID.eq(1)).fetchOne();
+        author.setDateOfBirth(Date.valueOf("2000-01-01"));
+        author.store();
+        JooqUtil.print(author);
+ 
+        JooqUtil.title("Create a new active record");
+        author = dslContext.newRecord(AUTHOR);
+        author.setId(3);
+        author.setFirstName("First3");
+        author.setLastName("Last3");
+        author.store();
+        JooqUtil.print(author);
+ 
+        JooqUtil.title("Refreshing an active record");
+        author = dslContext.newRecord(AUTHOR);
+        author.setId(3);
+        author.refresh();
+        JooqUtil.print(author);
+ 
+        JooqUtil.title("Updating an active record");
+        author.setDateOfBirth(Date.valueOf("2010-01-09"));
+        author.store();
+        JooqUtil.print(author);
+ 
+        JooqUtil.title("Deleting an active record");
+        author.delete();
+        JooqUtil.print(dslContext.selectFrom(AUTHOR).fetch());
+    }
+ 
+    @Test(expected = DataChangedException.class)
+    public void test07OptimisticLocking() {
+        DSLContext dsl = DSL.using(connection, new Settings().withExecuteWithOptimisticLocking(Boolean.TRUE));
+        JooqUtil.title("Applying optimistic locking");
+ 
+        BookRecord book1 = dsl.selectFrom(BOOK).where(BOOK.ID.eq(1)).fetchOne();
+        BookRecord book2 = dsl.selectFrom(BOOK).where(BOOK.ID.eq(1)).fetchOne();
+ 
+        book1.setTitle("New Title");
+        book1.store();
+ 
+        book2.setTitle("Another Title");
+        book2.store();
+    }
+ 
+    @Test
+  public void test08CheckedExceptions() {
+        JooqUtil.title("JDBC throws lots of checked exceptions where as jOOQ doesn't throw any checked exceptions");
+        // These JDBC calls can throw a SQLException
+ /*try (PreparedStatement stmt = connection.prepareStatement("SELECT FIRST_NAME FROM AUTHOR");
+ ResultSet rs = stmt.executeQuery()) {
+ while (rs.next()) {
+ System.out.println(rs.getString(1));
+ }
+ }*/
+  dslContext
+  .select(AUTHOR.FIRST_NAME)
+                .from(AUTHOR)
+                .fetch()
+                .forEach(record -> System.out.println(record.get(AUTHOR.FIRST_NAME)));
+    }
+ 
+    @Test
+    public void test09ResultSets() {
+        JooqUtil.title("Using jOOQ Results in foreach loops");
+        for (Record record : dslContext.selectFrom(AUTHOR).fetch()) {
+            System.out.println(record);
+        }
+ 
+        JooqUtil.title("Using jOOQ Results with Java 8 streams");
+        dslContext
+     .selectFrom(AUTHOR)
+                .fetch()
+                .stream()
+                .flatMap(record -> Arrays.stream(record.intoArray()))
+                .forEach(System.out::println);
+    }
+ 
+    @Test
+   public void test10PreparedStatements() {
+       /* JooqUtil.title("Distinguishing between static and prepared statements with JDBC");
+ try (Statement stmt = connection.createStatement()) {
+ stmt.execute("SELECT * FROM AUTHOR");
+ }
+ try (PreparedStatement stmt = connection.prepareStatement("SELECT * FROM AUTHOR")) {
+ stmt.execute();
+ }*/
+ 
+ JooqUtil.title("Distinguishing between static and prepared statements with jOOQ");
+        System.out.println(DSL.using(connection, new Settings().withStatementType(StatementType.STATIC_STATEMENT))
+                .fetch("SELECT * FROM AUTHOR"));
+        System.out.println(dslContext.fetch("SELECT * FROM AUTHOR"));
+ 
+    }
+ 
+    @Test
+    public void test11StatementsAndResults() {
+       /* JooqUtil.title("If you don't know whether a result set is produced with JDBC");
+ try (PreparedStatement stmt = connection.prepareStatement("SELECT FIRST_NAME FROM AUTHOR")) {
+ boolean moreResults = stmt.execute();
+ 
+ do {
+ if (moreResults) {
+ try (ResultSet rs = stmt.getResultSet()) {
+ while (rs.next()) {
+ System.out.println(rs.getString(1));
+ }
+ }
+ }
+ else {
+ System.out.println(stmt.getUpdateCount());
+ }
+ } while ((moreResults = stmt.getMoreResults()) || stmt.getUpdateCount() != -1);
+ }*/
+ JooqUtil.title("You always know whether a result set is produced with jOOQ, because of the type");
+ 
+        Query query = dslContext.query("UPDATE AUTHOR SET LAST_NAME = LAST_NAME");
+        System.out.println(query.execute());
+ 
+        ResultQuery<Record> resultQuery = dslContext.resultQuery("SELECT * FROM AUTHOR");
+        System.out.println(resultQuery.fetch());
+    }
+ 
+    @Test
+    public void test12ConnectionProvider() {
+        JooqUtil.title("Using jOOQ with a standalone connection");
+        System.out.println(DSL.using(connection)
+                .selectFrom(AUTHOR).fetch());
+ 
+        JooqUtil.title("Using jOOQ with a DBCP connection pool");
+        BasicDataSource basicDataSource = new BasicDataSource();
+        basicDataSource.setDriverClassName(DBSetUp.driver());
+        basicDataSource.setUrl(DBSetUp.url());
+        basicDataSource.setUsername(DBSetUp.username());
+        basicDataSource.setPassword(DBSetUp.password());
+ 
+        System.out.println(DSL.using(basicDataSource, SQLDialect.H2)
+                .selectFrom(AUTHOR).fetch());
+ 
+    }
+ 
+    @Test
+    public void test13SQLDialect() {
+        JooqUtil.title("Generate SELECT 1 FROM DUAL for all SQL dialect families");
+        Arrays.stream(SQLDialect.families())
+                .map(dialect -> String.format("%15s : ", dialect) + DSL.using(dialect).render(DSL.selectOne()))
+                .forEach(System.out::println);
+    }
+ 
+    @Test
+    public void test14Settings() {
+        Select<?> select = DSL.selectFrom(AUTHOR)
+                .where(AUTHOR.ID.eq(3));
+ 
+        JooqUtil.title("A couple of settings at work - Formatting");
+        System.out.println(DSL.using(SQLDialect.H2, new Settings().withRenderFormatted(Boolean.FALSE)).render(select));
+        System.out.println(DSL.using(SQLDialect.H2, new Settings().withRenderFormatted(Boolean.TRUE)).render(select));
+ 
+        JooqUtil.title("A couple of settings at work - Schema");
+        System.out.println(DSL.using(SQLDialect.H2, new Settings().withRenderSchema(Boolean.FALSE)).render(select));
+        System.out.println(DSL.using(SQLDialect.H2, new Settings().withRenderSchema(Boolean.TRUE)).render(select));
+ 
+        JooqUtil.title("A couple of settings at work - Name style");
+        System.out.println(DSL.using(SQLDialect.H2, new Settings().withRenderNameStyle(RenderNameStyle.AS_IS)).render(select));
+        System.out.println(DSL.using(SQLDialect.H2, new Settings().withRenderNameStyle(RenderNameStyle.LOWER)).render(select));
+        System.out.println(DSL.using(SQLDialect.H2, new Settings().withRenderNameStyle(RenderNameStyle.UPPER)).render(select));
+        System.out.println(DSL.using(SQLDialect.H2, new Settings().withRenderNameStyle(RenderNameStyle.QUOTED)).render(select));
+ 
+        JooqUtil.title("A couple of settings at work - Keyword style");
+        System.out.println(DSL.using(SQLDialect.H2, new Settings().withRenderKeywordStyle(RenderKeywordStyle.AS_IS)).render(select));
+        System.out.println(DSL.using(SQLDialect.H2, new Settings().withRenderKeywordStyle(RenderKeywordStyle.LOWER)).render(select));
+        System.out.println(DSL.using(SQLDialect.H2, new Settings().withRenderKeywordStyle(RenderKeywordStyle.UPPER)).render(select));
+ 
+        JooqUtil.title("A couple of settings at work - Mapping");
+        System.out.println(DSL.using(SQLDialect.H2, new Settings().withRenderMapping(new RenderMapping()
+                .withSchemata(new MappedSchema()
+                        .withInput("PUBLIC")
+                        .withOutput("test")
+                        .withTables(new MappedTable()
+                                .withInput("AUTHOR")
+                                .withOutput("test-author"))))).render(select));
+    }
+ 
+    @Test
+    public void test15ExecuteListener() {
+        JooqUtil.title("Displaying execution time using a custom ExecuteListener");
+        ExecuteListener executeListener = new CallbackExecuteListener()
+                .onStart(ctx -> {
+                    ctx.data("time", System.nanoTime());
+                })
+                .onEnd(ctx -> {
+                    Long time = (Long) ctx.data("time");
+                    System.out.println("Execution Time : " + ((System.nanoTime() - time) / 1000 / 1000.0) + "ms. Query : " + ctx.sql());
+                });
+        DSL.using(new DefaultConfiguration()
+                .set(SQLDialect.H2)
+                .set(new DefaultConnectionProvider(connection))
+                .set(new DefaultExecuteListenerProvider(executeListener)))
+                .selectFrom(AUTHOR)
+                .fetch();
+    }
+ 
+    @Test
+    public void testJoins() {
+        Book b = BOOK.as("b");
+        Author a = AUTHOR.as("a");
+        BookStore s = BOOK_STORE.as("s");
+        BookToBookStore t = BOOK_TO_BOOK_STORE.as("t");
+        Result<Record3<String, String, Integer>> result = dslContext.select(a.FIRST_NAME, a.LAST_NAME, countDistinct(s.NAME))
+                .from(a)
+                .join(b)
+                .on(b.AUTHOR_ID.equal(a.ID))
+                .join(t)
+                .on(t.BOOK_ID.equal(b.ID))
+                .join(s)
+                .on(t.BOOK_STORE_NAME.equal(s.NAME))
+                .groupBy(a.FIRST_NAME, a.LAST_NAME)
+                .orderBy(countDistinct(s.NAME).desc())
+                .fetch();
+        Assert.assertEquals(2, result.size());
+        Assert.assertEquals("Paulo", result.getValue(0, a.FIRST_NAME));
+        Assert.assertEquals("George", result.getValue(1, a.FIRST_NAME));
+ 
+        Assert.assertEquals("Coelho", result.getValue(0, a.LAST_NAME));
+        Assert.assertEquals("Orwell", result.getValue(1, a.LAST_NAME));
+ 
+        Assert.assertEquals(Integer.valueOf(3), result.getValue(0, countDistinct(s.NAME)));
+        Assert.assertEquals(Integer.valueOf(2), result.getValue(1, countDistinct(s.NAME)));
+ 
+    }
+ 
+}
+```
+- Under the "src/test/java" , in the package -- "com.jooq", create class - "TransactionTest" and fill with the below content
+```
+package com.jooq;
+ 
+import com.prokarma.config.JooqSpringBootConfiguration;
+import com.prokarma.service.IBookService;
+import org.h2.jdbc.JdbcSQLException;
+import org.jooq.DSLContext;
+import org.jooq.exception.DataAccessException;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
+ 
+import java.util.concurrent.atomic.AtomicBoolean;
+ 
+import static com.prokarma.jooq.tables.Book.BOOK;
+ 
+@RunWith(SpringJUnit4ClassRunner.class)
+@SpringBootTest
+public class TransactionTest {
+ 
+    @Autowired
+    DSLContext dsl;
+ 
+    @Autowired
+    DataSourceTransactionManager transactionManager;
+ 
+    @Autowired
+    IBookService bookService;
+ 
+    @Test
+    public void testExplicitTransactions() {
+        boolean rollback = false;
+        TransactionStatus tx = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        try {
+            dsl.insertInto(BOOK).set(BOOK.ID, 1).set(BOOK.AUTHOR_ID, 1).set(BOOK.TITLE, "Book 5").execute();
+            Assert.fail();
+        } catch (Exception e) {
+            System.out.println("Exception is" + e.toString());
+            transactionManager.rollback(tx);
+            rollback = true;
+        }
+ 
+        Assert.assertEquals(4, dsl.fetchCount(BOOK));
+        Assert.assertTrue(rollback);
+    }
+ 
+    @Test
+    public void testDeclarativeTransactions() {
+        boolean rollback = false;
+        try {
+            bookService.create(1, 1, "Book 5");
+            Assert.fail();
+        } catch (Exception ignore) {
+            rollback = true;
+        }
+ 
+        Assert.assertEquals(4, dsl.fetchCount(BOOK));
+        Assert.assertTrue(rollback);
+    }
+ 
+    @Test
+    public void testjOOQTransactionsSimple() {
+        boolean rollback = false;
+        try {
+            dsl.transaction(c -> {
+                dsl.insertInto(BOOK).set(BOOK.ID, 1).set(BOOK.AUTHOR_ID, 1).set(BOOK.TITLE, "Book 5").execute();
+                Assert.fail();
+            });
+        } catch (Exception e) {
+            rollback = true;
+        }
+ 
+        Assert.assertEquals(4, dsl.fetchCount(BOOK));
+        Assert.assertTrue(rollback);
+    }
+ 
+    @Test
+    public void testjOOQTransactionsNested() {
+        AtomicBoolean rollback1 = new AtomicBoolean(false);
+        AtomicBoolean rollback2 = new AtomicBoolean(false);
+        try {
+            dsl.transaction(c1 -> {
+ 
+                dsl.insertInto(BOOK).set(BOOK.ID, 5).set(BOOK.AUTHOR_ID, 1).set(BOOK.TITLE, "Book 5").execute();
+ 
+                Assert.assertEquals(5, dsl.fetchCount(BOOK));
+ 
+                try {
+                    dsl.transaction(c2 -> {
+                        dsl.insertInto(BOOK).set(BOOK.ID, 5).set(BOOK.AUTHOR_ID, 1).set(BOOK.TITLE, "Book 6").execute();
+                        Assert.fail();
+                    });
+                } catch (Exception e) {
+                    rollback1.set(true);
+                }
+                Assert.assertEquals(5, dsl.fetchCount(BOOK));
+ 
+                throw new org.jooq.exception.DataAccessException("Rollback");
+            });
+        } catch (org.jooq.exception.DataAccessException e) {
+            Assert.assertEquals("Rollback", e.getMessage());
+            rollback2.set(true);
+        }
+ 
+        Assert.assertEquals(4, dsl.fetchCount(BOOK));
+        Assert.assertTrue(rollback2.get());
+        Assert.assertTrue(rollback2.get());
+    }
+}
+```
