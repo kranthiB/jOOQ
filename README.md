@@ -1421,6 +1421,6 @@ class JooqSpringBootConfiguration {
 ### SQL 2 jOOQ Parser Tool
 jOOQ community in collaberation with Gudu Software, they released a tool which is an open source where it will take the native sql as input and generate the corresponding java code.
 
-While executing the below code, make sure the two jars - [gsp.jar]() , [sql2jooq.jar]() are in the classpath.
+While executing the below code, make sure the two jars - [gsp.jar](https://github.com/kranthiB/jOOQ/blob/master/gsp.jar) , [sql2jooq.jar](https://github.com/kranthiB/jOOQ/blob/master/sql2jooq.jar) are in the classpath.
                 
                 
