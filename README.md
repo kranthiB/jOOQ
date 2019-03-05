@@ -194,7 +194,7 @@ the keys present in those property files can be used in the pom configuration
                         <pojos>true</pojos>
                     </generate>
                     <target>
-                        <packageName>com.prokarma.jooq</packageName>
+                        <packageName>com.jooq</packageName>
                         <directory>gensrc/main/java</directory>
                     </target>
                 </generator>
@@ -345,7 +345,7 @@ import com.jooq.service.IBookService;
 import org.jooq.DSLContext;
 import org.springframework.transaction.annotation.Transactional;
  
-import static com.prokarma.jooq.tables.Book.BOOK;
+import static com.jooq.tables.Book.BOOK;
  
 public class BookServiceImpl implements IBookService {
  
@@ -386,9 +386,9 @@ public class ExceptionTranslator extends DefaultExecuteListener {
     }
 }
 ```
-- Under the "src/main/java" , create package - "com.prokarma.transaction", in this package create class - "JooqSpringTransaction" and fill with the below content
+- Under the "src/main/java" , create package - "com.transaction", in this package create class - "JooqSpringTransaction" and fill with the below content
 ```java
-package com.prokarma.transaction;
+package com.transaction;
  
 import org.jooq.Transaction;
 import org.springframework.transaction.TransactionStatus;
@@ -532,18 +532,18 @@ public class JooqUtil {
 ```java
 package com.jooq;
  
-import static com.prokarma.jooq.tables.Author.AUTHOR;
-import static com.prokarma.jooq.tables.Book.BOOK;
-import static com.prokarma.jooq.tables.BookStore.BOOK_STORE;
-import static com.prokarma.jooq.tables.BookToBookStore.BOOK_TO_BOOK_STORE;
+import static com.jooq.tables.Author.AUTHOR;
+import static com.jooq.tables.Book.BOOK;
+import static com.jooq.tables.BookStore.BOOK_STORE;
+import static com.jooq.tables.BookToBookStore.BOOK_TO_BOOK_STORE;
 import static org.jooq.impl.DSL.*;
  
-import com.prokarma.jooq.tables.Author;
-import com.prokarma.jooq.tables.Book;
-import com.prokarma.jooq.tables.BookStore;
-import com.prokarma.jooq.tables.BookToBookStore;
-import com.prokarma.jooq.tables.records.AuthorRecord;
-import com.prokarma.jooq.tables.records.BookRecord;
+import com.jooq.tables.Author;
+import com.jooq.tables.Book;
+import com.jooq.tables.BookStore;
+import com.jooq.tables.BookToBookStore;
+import com.jooq.tables.records.AuthorRecord;
+import com.jooq.tables.records.BookRecord;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.jooq.*;
 import org.jooq.conf.*;
@@ -900,8 +900,8 @@ public class JooqTests {
 ```java
 package com.jooq;
  
-import com.prokarma.config.JooqSpringBootConfiguration;
-import com.prokarma.service.IBookService;
+import com.config.JooqSpringBootConfiguration;
+import com.service.IBookService;
 import org.h2.jdbc.JdbcSQLException;
 import org.jooq.DSLContext;
 import org.jooq.exception.DataAccessException;
@@ -920,7 +920,7 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
  
 import java.util.concurrent.atomic.AtomicBoolean;
  
-import static com.prokarma.jooq.tables.Book.BOOK;
+import static com.jooq.tables.Book.BOOK;
  
 @RunWith(SpringJUnit4ClassRunner.class)
 @SpringBootTest
@@ -1022,11 +1022,11 @@ jOOQ's core shipped with the different tools. Out of those, jOOQ's Mock API is o
 
 ### DaoTest
 ```java
-import com.prokarma.dao.impl.BookDao;
-import com.prokarma.jooq.tables.Author;
-import com.prokarma.jooq.tables.Book;
-import com.prokarma.jooq.tables.records.AuthorRecord;
-import com.prokarma.jooq.tables.records.BookRecord;
+import com.dao.impl.BookDao;
+import com.jooq.tables.Author;
+import com.jooq.tables.Book;
+import com.jooq.tables.records.AuthorRecord;
+import com.jooq.tables.records.BookRecord;
 import org.jooq.DSLContext;
 import org.jooq.Result;
 import org.jooq.SQLDialect;
@@ -1063,40 +1063,40 @@ public class BookDaoTest {
  
     @Test
     public void test01FindAll() {
-        List<com.prokarma.jooq.tables.pojos.Book> books = bookDao.findAll();
+        List<com.jooq.tables.pojos.Book> books = bookDao.findAll();
         Assert.assertEquals(1, books.size());
     }
  
     @Test
     public void test02FindById() {
-        com.prokarma.jooq.tables.pojos.Book book = bookDao.findById(1);
+        com.jooq.tables.pojos.Book book = bookDao.findById(1);
         Assert.assertEquals("TITLE1", book.getTitle());
     }
  
     @Test
     public void test03Create() {
-        com.prokarma.jooq.tables.pojos.Book book = new com.prokarma.jooq.tables.pojos.Book();
+        com.jooq.tables.pojos.Book book = new com.jooq.tables.pojos.Book();
         book.setId(1);
         book.setTitle("TITLE1");
         bookDao.create(book);
-        com.prokarma.jooq.tables.pojos.Book book1 = bookDao.findById(1);
+        com.jooq.tables.pojos.Book book1 = bookDao.findById(1);
         Assert.assertEquals("TITLE1", book1.getTitle());
     }
  
     @Test
     public void test04Update() {
-        com.prokarma.jooq.tables.pojos.Book book = new com.prokarma.jooq.tables.pojos.Book();
+        com.jooq.tables.pojos.Book book = new com.jooq.tables.pojos.Book();
         book.setId(1);
         book.setTitle("TITLE2");
         bookDao.update(book);
-        com.prokarma.jooq.tables.pojos.Book book1 = bookDao.findById(1);
+        com.jooq.tables.pojos.Book book1 = bookDao.findById(1);
         Assert.assertEquals("TITLE2", book1.getTitle());
     }
  
     @Test
     public void test05Delete() {
         bookDao.delete(1);
-        com.prokarma.jooq.tables.pojos.Book book = bookDao.findById(1);
+        com.jooq.tables.pojos.Book book = bookDao.findById(1);
         Assert.assertNull(book.getId());
     }
  
@@ -1146,9 +1146,9 @@ class BookMockDataProvider implements MockDataProvider {
 ```
 ### Sample Spring Boot Project 
 ```java
-import static com.prokarma.jooq.tables.Book.BOOK;
+import static com.jooq.tables.Book.BOOK;
  
-import com.prokarma.jooq.tables.pojos.Book;
+import com.jooq.tables.pojos.Book;
 import org.jooq.*;
 import org.jooq.exception.DataAccessException;
 import org.jooq.impl.*;
