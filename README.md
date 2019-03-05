@@ -1411,3 +1411,12 @@ class JooqSpringBootConfiguration {
  
 }
 ```
+
+## SQL vs JOOQ
+
+| SQL | jOOQ |
+| :---| :--- |
+| <pre>insert into FOOD (ID , KIND) values (1 , 'FRUIT SNACK');<br>insert into FOOD (ID , KIND) values (2 , 'INDONESIAN FOOD');<br>insert into FOOD (ID , KIND) values (3 , 'CANDY');<br>insert into FOOD (ID , KIND) values (4 , 'VEGGIES'); </pre> |<pre> database.insertInto(FOOD, FOOD.ID, FOOD.KIND)<br>         .values(1L, "FRUIT SNACK")<br>         .values(2L, "INDONESIAN FOOD")<br>         .values(3L, "CANDY")<br>         .values(4L, "VEGGIES").execute();</pre>|
+                
+                
+                
