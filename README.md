@@ -1422,5 +1422,60 @@ class JooqSpringBootConfiguration {
 jOOQ community in collaberation with Gudu Software, they released a tool which is an open source where it will take the native sql as input and generate the corresponding java code.
 
 While executing the below code, make sure the two jars - [gsp.jar](https://github.com/kranthiB/jOOQ/blob/master/gsp.jar) , [sql2jooq.jar](https://github.com/kranthiB/jOOQ/blob/master/sql2jooq.jar) are in the classpath.
+
+### jOOQ Converter
+```java
+import gudusoft.gsqlparser.EDbVendor;
+import gudusoft.gsqlparser.sql2jooq.SQL2jOOQ;
+import gudusoft.gsqlparser.sql2jooq.db.DatabaseMetaData;
+import gudusoft.gsqlparser.sql2jooq.tool.DatabaseMetaUtil;
+ 
+import java.sql.Connection;
+import java.sql.DriverManager;
+ 
+public class JooqConverter {
+    public static void main(String[] args) throws Exception {
+ 
+        // 1. Create a JDBC connection
+        // ---------------------------
+        String userName = "sa";
+        String password = "";
+        String url = "jdbc:h2:~/test";
+ 
+        Class.forName("org.h2.Driver");
+        Connection conn = DriverManager.getConnection(url, userName, password);
+ 
+        // 2. Create a new SQL2jOOQ converter object
+        // -----------------------------------------
+        DatabaseMetaData metaData = DatabaseMetaUtil
+                .getDataBaseMetaData(conn, "test"); // Database Name
+ 
+        SQL2jOOQ convert = new SQL2jOOQ(metaData,
+                EDbVendor.dbvmysql,
+                "select first_name, last_name from author where id = 1;");
+ 
+        // 3. Convert your SQL code
+        // ------------------------
+        convert.convert();
+        if (convert.getErrorMessage() != null) {
+            System.err.println(convert.getErrorMessage());
+            System.exit(-1);
+        }
+ 
+        // 4. Get the result
+        // -----------------
+        System.out.println(convert.getConvertResult());
+    }
+}
+```
+
+### Output
+```console
+DSLContext create = DSL.using(conn, SQLDialect.MYSQL);
+ 
+Result<Record2<Object, Object>> result = create.select( Author.AUTHOR.FIRST_NAME, Author.AUTHOR.LAST_NAME )
+    .from( Author.AUTHOR )
+    .where( Author.AUTHOR.ID.equal( DSL.inline( 1 ) ) ).fetch( );
+```
                 
                 
