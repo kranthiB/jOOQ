@@ -1016,3 +1016,398 @@ public class TransactionTest {
     }
 }
 ```
+
+## jOOQ's Mock API
+jOOQ's core shipped with the different tools. Out of those, jOOQ's Mock API is one of the tools which will be used to perform Unit Testing for all the DAO Layers with out any in-memory database.
+
+### DaoTest
+```java
+import com.prokarma.dao.impl.BookDao;
+import com.prokarma.jooq.tables.Author;
+import com.prokarma.jooq.tables.Book;
+import com.prokarma.jooq.tables.records.AuthorRecord;
+import com.prokarma.jooq.tables.records.BookRecord;
+import org.jooq.DSLContext;
+import org.jooq.Result;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
+import org.jooq.tools.jdbc.MockConnection;
+import org.jooq.tools.jdbc.MockDataProvider;
+import org.jooq.tools.jdbc.MockExecuteContext;
+import org.jooq.tools.jdbc.MockResult;
+import org.junit.*;
+import org.junit.runner.RunWith;
+import org.junit.runners.MethodSorters;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+ 
+import java.sql.SQLException;
+import java.util.List;
+ 
+@RunWith(SpringJUnit4ClassRunner.class)
+@SpringBootTest
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
+public class BookDaoTest {
+ 
+    IBookDao bookDao;
+ 
+    DSLContext dslContext;
+ 
+    @Before
+    public void setUp() {
+        MockConnection mockConnection = new MockConnection(new BookMockDataProvider());
+        dslContext = DSL.using(mockConnection, SQLDialect.H2);
+        bookDao = new BookDao(dslContext);
+    }
+ 
+    @Test
+    public void test01FindAll() {
+        List<com.prokarma.jooq.tables.pojos.Book> books = bookDao.findAll();
+        Assert.assertEquals(1, books.size());
+    }
+ 
+    @Test
+    public void test02FindById() {
+        com.prokarma.jooq.tables.pojos.Book book = bookDao.findById(1);
+        Assert.assertEquals("TITLE1", book.getTitle());
+    }
+ 
+    @Test
+    public void test03Create() {
+        com.prokarma.jooq.tables.pojos.Book book = new com.prokarma.jooq.tables.pojos.Book();
+        book.setId(1);
+        book.setTitle("TITLE1");
+        bookDao.create(book);
+        com.prokarma.jooq.tables.pojos.Book book1 = bookDao.findById(1);
+        Assert.assertEquals("TITLE1", book1.getTitle());
+    }
+ 
+    @Test
+    public void test04Update() {
+        com.prokarma.jooq.tables.pojos.Book book = new com.prokarma.jooq.tables.pojos.Book();
+        book.setId(1);
+        book.setTitle("TITLE2");
+        bookDao.update(book);
+        com.prokarma.jooq.tables.pojos.Book book1 = bookDao.findById(1);
+        Assert.assertEquals("TITLE2", book1.getTitle());
+    }
+ 
+    @Test
+    public void test05Delete() {
+        bookDao.delete(1);
+        com.prokarma.jooq.tables.pojos.Book book = bookDao.findById(1);
+        Assert.assertNull(book.getId());
+    }
+ 
+ 
+}
+ 
+class BookMockDataProvider implements MockDataProvider {
+ 
+    private String title = "TITLE1";
+ 
+    boolean isDeleteRequested = false;
+ 
+    @Override
+    public MockResult[] execute(MockExecuteContext ctx) throws SQLException {
+ 
+        DSLContext create = DSL.using(SQLDialect.H2);
+        MockResult[] mock = new MockResult[1];
+        String sql = ctx.sql();
+        if (sql.toUpperCase().startsWith("SELECT")
+                || sql.toUpperCase().startsWith("INSERT")) {
+            if (!isDeleteRequested) {
+                Result<BookRecord> result = create.newResult(Book.BOOK);
+                result.add(create.newRecord(Book.BOOK));
+                result.get(0).setValue(Book.BOOK.ID, 1);
+                result.get(0).setValue(Book.BOOK.TITLE, title);
+                mock[0] = new MockResult(1, result);
+            } else {
+                Result<BookRecord> result = create.newResult(Book.BOOK);
+                result.add(create.newRecord(Book.BOOK));
+                mock[0] = new MockResult(1, result);
+            }
+        } else if (sql.toUpperCase().startsWith("UPDATE")) {
+            Result<BookRecord> result = create.newResult(Book.BOOK);
+            result.add(create.newRecord(Book.BOOK));
+            result.get(0).setValue(Book.BOOK.ID, 1);
+            title = "TITLE2";
+            result.get(0).setValue(Book.BOOK.TITLE, title);
+            mock[0] = new MockResult(1, result);
+        } else if (sql.toUpperCase().startsWith("DELETE")) {
+            isDeleteRequested = true;
+            mock[0] = new MockResult(1, null);
+        }
+ 
+        return mock;
+    }
+}
+```
+### Sample Spring Boot Project 
+```java
+import static com.prokarma.jooq.tables.Book.BOOK;
+ 
+import com.prokarma.jooq.tables.pojos.Book;
+import org.jooq.*;
+import org.jooq.exception.DataAccessException;
+import org.jooq.impl.*;
+import org.jooq.tools.JooqLogger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy;
+import org.springframework.jdbc.support.SQLErrorCodeSQLExceptionTranslator;
+import org.springframework.jdbc.support.SQLExceptionTranslator;
+import org.springframework.jdbc.support.SQLStateSQLExceptionTranslator;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
+ 
+import javax.sql.DataSource;
+import java.util.List;
+ 
+ 
+@SpringBootApplication
+public class JooqApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(JooqApplication.class, args);
+    }
+}
+ 
+/************************************************************************************************
+ ---------------------------------------SERVICE LAYER--------------------------------------------
+ ************************************************************************************************/
+ 
+interface IBookService {
+ 
+    @Transactional
+    void create(Book book);
+ 
+    List<Book> findAll();
+ 
+    @Transactional
+    void delete(int id);
+ 
+    @Transactional
+    void update(Book book);
+}
+ 
+class BookService implements IBookService {
+ 
+    private IBookDao bookDao;
+ 
+    public BookService(IBookDao bookDao) {
+        this.bookDao = bookDao;
+    }
+ 
+    @Override
+    @Transactional
+    public void create(Book book) {
+        bookDao.create(book);
+    }
+ 
+    @Override
+    public List<Book> findAll() {
+        return bookDao.findAll();
+    }
+ 
+    @Override
+    @Transactional
+    public void delete(int id) {
+        bookDao.delete(id);
+    }
+ 
+    @Override
+    @Transactional
+    public void update(Book book) {
+        bookDao.update(book);
+    }
+}
+ 
+/************************************************************************************************
+ ---------------------------------------DAO LAYER--------------------------------------------
+ ************************************************************************************************/
+ 
+interface IBookDao {
+ 
+    void create(Book book);
+ 
+    List<Book> findAll();
+ 
+    void delete(int id);
+ 
+    void update(Book book);
+  
+    Book findById(int id);
+ 
+}
+ 
+class BookDao implements IBookDao {
+ 
+    private DSLContext dsl;
+ 
+    public BookDao(DSLContext dsl) {
+        this.dsl = dsl;
+    }
+ 
+    @Override
+    public void create(Book book) {
+        dsl.insertInto(BOOK)
+                .set(BOOK.ID, book.getId())
+                .set(BOOK.AUTHOR_ID, book.getAuthorId())
+                .set(BOOK.TITLE, book.getTitle()).execute();
+    }
+ 
+    @Override
+    public List<Book> findAll() {
+        return dsl.selectFrom(BOOK).orderBy(BOOK.ID).fetch().into(Book.class);
+    }
+ 
+    @Override
+    public void delete(int id) {
+        dsl.deleteFrom(BOOK).where(BOOK.ID.eq(id));
+    }
+ 
+    @Override
+    public void update(Book book) {
+        dsl.update(BOOK)
+                .set(BOOK.AUTHOR_ID, book.getAuthorId())
+                .set(BOOK.TITLE, book.getTitle())
+                .where(BOOK.ID.eq(book.getId()));
+    }
+  
+    @Override
+    public Book findById(int id) {
+        return dsl.selectFrom(BOOK).where(BOOK.ID.eq(id)).fetchOne().into(Book.class);
+    }
+}
+ 
+/************************************************************************************************
+ ---------------------------------------EXCEPTION HANDLING---------------------------------------
+ ************************************************************************************************/
+ 
+class ExceptionTranslatorUtil extends DefaultExecuteListener {
+    @Override
+    public void exception(ExecuteContext ctx) {
+        if (ctx.sqlException() != null) {
+            SQLDialect sqlDialect = ctx.dialect();
+            SQLExceptionTranslator sqlExceptionTranslator = (sqlDialect != null)
+                    ? new SQLErrorCodeSQLExceptionTranslator(sqlDialect.thirdParty().springDbName())
+                    : new SQLStateSQLExceptionTranslator();
+            ctx.exception(sqlExceptionTranslator.translate("jOOQ", ctx.sql(), ctx.sqlException()));
+        }
+    }
+}
+ 
+/************************************************************************************************
+ ---------------------------------------jOOQ Transaction-----------------------------------------
+ ************************************************************************************************/
+ 
+class JooqSpringTransaction implements Transaction {
+ 
+    final TransactionStatus transactionStatus;
+ 
+    public JooqSpringTransaction(TransactionStatus transactionStatus) {
+        this.transactionStatus = transactionStatus;
+    }
+}
+ 
+class JooqSpringTransactionProvider implements TransactionProvider {
+ 
+    private static final JooqLogger JOOQ_LOGGER = JooqLogger.getLogger(JooqSpringTransactionProvider.class);
+ 
+    private DataSourceTransactionManager dataSourceTransactionManager;
+ 
+    public JooqSpringTransactionProvider(DataSourceTransactionManager dataSourceTransactionManager) {
+        this.dataSourceTransactionManager = dataSourceTransactionManager;
+    }
+ 
+    @Override
+    public void begin(TransactionContext transactionContext) throws DataAccessException {
+        JOOQ_LOGGER.info("Begin Transaction");
+        TransactionStatus transactionStatus = dataSourceTransactionManager.getTransaction
+                (new DefaultTransactionDefinition(TransactionDefinition.PROPAGATION_NESTED));
+        transactionContext.transaction(new JooqSpringTransaction(transactionStatus));
+    }
+ 
+    @Override
+    public void commit(TransactionContext transactionContext) throws DataAccessException {
+        JOOQ_LOGGER.info("commit transaction");
+        dataSourceTransactionManager.commit(((JooqSpringTransaction) transactionContext.transaction()).transactionStatus);
+    }
+ 
+    @Override
+    public void rollback(TransactionContext transactionContext) throws DataAccessException {
+        JOOQ_LOGGER.info("rollback  transaction");
+        dataSourceTransactionManager.rollback(((JooqSpringTransaction) transactionContext.transaction()).transactionStatus);
+    }
+}
+ 
+ 
+/************************************************************************************************
+ ---------------------------------------JAVA CONFIGURATION---------------------------------------
+ ************************************************************************************************/
+ 
+@Configuration
+class JooqSpringBootConfiguration {
+ 
+    @Bean
+    public DataSourceTransactionManager transactionManager(DataSource dataSource) {
+        System.out.println(dataSource.toString());
+        return new DataSourceTransactionManager(dataSource);
+    }
+ 
+    @Bean
+    public DSLContext dsl(org.jooq.Configuration config) {
+        return new DefaultDSLContext(config);
+    }
+ 
+    @Bean
+    public ConnectionProvider connectionProvider(DataSource dataSource) {
+        return new DataSourceConnectionProvider(new TransactionAwareDataSourceProxy(dataSource));
+    }
+ 
+    @Bean
+    public TransactionProvider transactionProvider(DataSourceTransactionManager transactionManager) {
+        return new JooqSpringTransactionProvider(transactionManager);
+    }
+ 
+    @Bean
+    public ExceptionTranslatorUtil exceptionTranslatorUtil() {
+        return new ExceptionTranslatorUtil();
+    }
+ 
+    @Bean
+    public ExecuteListenerProvider executeListenerProvider(ExceptionTranslatorUtil exceptionTranslatorUtil) {
+        return new DefaultExecuteListenerProvider(exceptionTranslatorUtil);
+ 
+    }
+ 
+    @Bean
+    public org.jooq.Configuration jooqConfig(ConnectionProvider connectionProvider,
+                                             TransactionProvider transactionProvider, ExecuteListenerProvider executeListenerProvider) {
+ 
+        return new DefaultConfiguration()
+                .derive(connectionProvider)
+                .derive(transactionProvider)
+                .derive(executeListenerProvider)
+                .derive(SQLDialect.H2);
+    }
+ 
+    @Bean
+    public IBookDao bookDao(DSLContext dsl) {
+        return new BookDao(dsl);
+    }
+ 
+    @Bean
+    public IBookService bookService(IBookDao bookDao) {
+        return new BookService(bookDao);
+    }
+ 
+}
+```
