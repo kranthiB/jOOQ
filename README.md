@@ -1417,6 +1417,10 @@ class JooqSpringBootConfiguration {
 | SQL | jOOQ |
 | :---| :--- |
 | <pre>insert into FOOD (ID , KIND) values (1 , 'FRUIT SNACK');<br>insert into FOOD (ID , KIND) values (2 , 'INDONESIAN FOOD');<br>insert into FOOD (ID , KIND) values (3 , 'CANDY');<br>insert into FOOD (ID , KIND) values (4 , 'VEGGIES'); </pre> |<pre> database.insertInto(FOOD, FOOD.ID, FOOD.KIND)<br>         .values(1L, "FRUIT SNACK")<br>         .values(2L, "INDONESIAN FOOD")<br>         .values(3L, "CANDY")<br>         .values(4L, "VEGGIES").execute();</pre>|
-                
+
+### SQL 2 jOOQ Parser Tool
+jOOQ community in collaberation with Gudu Software, they released a tool which is an open source where it will take the native sql as input and generate the corresponding java code.
+
+While executing the below code, make sure the two jars - [gsp.jar]() , [sql2jooq.jar]() are in the classpath.
                 
                 
